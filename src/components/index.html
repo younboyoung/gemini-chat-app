@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Chat</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-container">
+    <!-- 헤더 -->
+    <div class="header">
+        <div class="title">
+            <span class="logo">✨</span>
+            <span>Gemini Chat</span>
+        </div>
+        <div class="controls">
+            <button id="minimize-btn" class="control-btn">−</button>
+            <button id="close-btn" class="control-btn">×</button>
+        </div>
+    </div>
+
+    <!-- 채팅 영역 -->
+    <div class="chat-container">
+        <div id="chat-messages" class="chat-messages">
+            <div class="welcome-message">
+                <div class="welcome-icon">🤖</div>
+                <h3>안녕하세요!</h3>
+                <p>Gemini AI와 대화를 시작해보세요.<br>
+                    <kbd>Option + Space</kbd>로 언제든 호출할 수 있습니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 입력 영역 -->
+    <div class="input-container">
+        <div class="input-wrapper">
+                <textarea
+                        id="message-input"
+                        placeholder="메시지를 입력하세요... (Enter: 전송, Shift+Enter: 줄바꿈)"
+                        rows="1"
+                ></textarea>
+            <button id="send-btn" class="send-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22,2 15,22 11,13 2,9 22,2"></polygon>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 로딩 인디케이터 -->
+    <div id="loading" class="loading hidden">
+        <div class="loading-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+    </div>
+</div>
+
+<script src="renderer.js"></script>
+</body>
+</html>
