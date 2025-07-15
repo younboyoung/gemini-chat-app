@@ -1,14 +1,11 @@
 const { ipcRenderer } = require('electron');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 class GeminiChatApp {
     constructor() {
-        this.genAI = null;
-        this.model = null;
-        this.chatHistory = [];
         this.initializeElements();
         this.setupEventListeners();
-        this.initializeGemini();
+        this.currentAssistantMessageDiv = null; // 현재 스트리밍 중인 어시스턴트 메시지 div
+        this.fullResponse = ''; // 전체 응답을 저장할 변수
     }
 
     initializeElements() {
@@ -52,24 +49,18 @@ class GeminiChatApp {
                 ipcRenderer.send('hide-window');
             }
         });
-    }
 
-    async initializeGemini() {
-        try {
-            const apiKey = await ipcRenderer.invoke('get-api-key');
-            if (!apiKey) {
-                this.showError('Gemini API 키가 설정되지 않았습니다.\n.env 파일에 GEMINI_API_KEY를 설정해주세요.');
-                return;
-            }
+        // 메인 프로세스로부터 Gemini 응답 수신
+        ipcRenderer.on('gemini-response', (event, data) => {
+            this.handleGeminiResponse(data);
+        });
 
-            this.genAI = new GoogleGenerativeAI(apiKey);
-            this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-pro' });
-
-            console.log('Gemini AI가 초기화되었습니다.');
-        } catch (error) {
-            console.error('Gemini AI 초기화 실패:', error);
-            this.showError('Gemini AI 초기화에 실패했습니다.');
-        }
+        // 메인 프로세스로부터 에러 수신
+        ipcRenderer.on('gemini-error', (event, errorMessage) => {
+            this.showError(errorMessage);
+            this.showLoading(false);
+            this.sendBtn.disabled = false;
+        });
     }
 
     autoResizeTextarea() {
@@ -77,50 +68,63 @@ class GeminiChatApp {
         this.messageInput.style.height = this.messageInput.scrollHeight + 'px';
     }
 
-    async sendMessage() {
+    sendMessage() {
+        if (this.sendBtn.disabled) return;
         const message = this.messageInput.value.trim();
-        if (!message || !this.model) return;
+        if (!message) return;
 
         // 사용자 메시지 추가
         this.addMessage('user', message);
         this.messageInput.value = '';
         this.autoResizeTextarea();
 
-        // 로딩 표시
+        // 로딩 표시 및 새 어시스턴트 메시지 준비
         this.showLoading(true);
         this.sendBtn.disabled = true;
+        this.prepareForNewAssistantMessage();
 
-        try {
-            // Gemini API 호출
-            const chat = this.model.startChat({
-                history: this.chatHistory,
-                generationConfig: {
-                    maxOutputTokens: 1000,
-                    temperature: 0.7,
-                }
-            });
+        // 메인 프로세스로 메시지 전송
+        ipcRenderer.send('send-to-gemini', message);
+    }
 
-            const result = await chat.sendMessage(message);
-            const response = result.response;
-            const text = response.text();
+    handleGeminiResponse(data) {
+        this.showLoading(false);
+        this.sendBtn.disabled = false;
 
-            // 응답 메시지 추가
-            this.addMessage('assistant', text);
-
-            // 채팅 히스토리 업데이트
-            this.chatHistory.push(
-                { role: 'user', parts: [{ text: message }] },
-                { role: 'model', parts: [{ text: text }] }
-            );
-
-        } catch (error) {
-            console.error('메시지 전송 실패:', error);
-            this.addMessage('assistant', '죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.');
-        } finally {
-            this.showLoading(false);
-            this.sendBtn.disabled = false;
-            this.messageInput.focus();
+        // 응답 데이터를 한 글자씩 점진적으로 표시
+        this.fullResponse += data;
+        if (this.currentAssistantMessageDiv) {
+            const contentDiv = this.currentAssistantMessageDiv.querySelector('.message-content');
+            contentDiv.textContent = this.fullResponse; // 전체 응답을 계속 업데이트
+            this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
         }
+    }
+
+    prepareForNewAssistantMessage() {
+        // 이전 응답 스트리밍이 완료되었으므로, 새 메시지 div를 생성
+        this.fullResponse = ''; // 새 응답을 위해 초기화
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message assistant';
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.textContent = ''; // 처음에는 비어있음
+
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = new Date().toLocaleTimeString('ko-KR', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        messageDiv.appendChild(contentDiv);
+        messageDiv.appendChild(timeDiv);
+        this.chatMessages.appendChild(messageDiv);
+
+        this.currentAssistantMessageDiv = messageDiv;
+
+        // 스크롤을 맨 아래로
+        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
     addMessage(role, content) {

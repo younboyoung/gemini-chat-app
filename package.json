@@ -34,9 +34,9 @@
     },
     "files": [
       "electron/main.js",
-      "src/components/renderer.js",
-      "src/components/index.html",
-      "src/components/styles.css",
+      "src/renderer.js",
+      "src/frontend/index.html",
+      "src/frontend/styles.css",
       "node_modules/**/*"
     ],
     "mac": {

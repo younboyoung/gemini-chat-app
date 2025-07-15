@@ -1,4 +1,5 @@
 const { app, BrowserWindow, globalShortcut, Tray, Menu, ipcMain, screen } = require('electron');
+const { exec } = require('child_process');
 const path = require('path');
 require('dotenv').config();
 
@@ -28,7 +29,7 @@ function createWindow() {
         }
     });
 
-    mainWindow.loadFile('./src/components/index.html');
+    mainWindow.loadFile('./src/frontend/index.html');
 
     // 윈도우가 닫힐 때 숨김 처리
     mainWindow.on('close', (event) => {
@@ -58,8 +59,7 @@ function createTray() {
     const contextMenu = Menu.buildFromTemplate([
         {
             label: 'Show App',
-            click: () => {
-                mainWindow.show();
+            click: () => {mainWindow.show();
             }
         },
         {
@@ -146,7 +146,25 @@ ipcMain.on('close-app', () => {
     app.quit();
 });
 
-// Gemini API 키 전달
-ipcMain.handle('get-api-key', () => {
-    return process.env.GEMINI_API_KEY;
+// 렌더러에서 받은 메시지를 Gemini CLI로 전송
+ipcMain.on('send-to-gemini', (event, message) => {
+    // Sanitize message to prevent command injection
+    const sanitizedMessage = message.replace(/"/g, '\"');
+    const command = `echo "${sanitizedMessage}" | gemini`;
+    console.log(`Executing: ${command}`);
+
+    exec(command, { env: process.env }, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            console.error('Gemini CLI Stderr:', stderr);
+            mainWindow.webContents.send('gemini-error', stderr || error.message);
+            return;
+        }
+
+        // Filter out the cached credentials message
+        const filteredStdout = stdout.replace(/^Loaded cached credentials\.\n/i, '');
+
+        console.log('Gemini response:', filteredStdout);
+        mainWindow.webContents.send('gemini-response', filteredStdout);
+    });
 });
