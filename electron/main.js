@@ -150,7 +150,7 @@ ipcMain.on('close-app', () => {
 ipcMain.on('send-to-gemini', (event, message) => {
     // Sanitize message to prevent command injection
     const sanitizedMessage = message.replace(/"/g, '\"');
-    const command = `echo "${sanitizedMessage}" | gemini`;
+    const command = `echo "${sanitizedMessage}" | gemini -m "gemini-2.5-flash"`;
     console.log(`Executing: ${command}`);
 
     exec(command, { env: process.env }, (error, stdout, stderr) => {
